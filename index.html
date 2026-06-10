@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartTrade · Monitor de Señales</title>
+<style>
+  :root {
+    --gold: #f5c518; --gold-dim: #b8860b;
+    --blue: #4d9ef7; --green: #2ecc71; --red: #e74c3c; --orange: #f39c12;
+    --bg: #0b0d14; --bg2: #10121c; --bg3: #161928;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --text: #c8cde0; --text2: #7a90b0; --text3: #3d5070;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Header ── */
+  .header { border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-size: 17px; font-weight: 600; color: #e8ecf4; letter-spacing: -0.3px; }
+  .logo span { color: var(--blue); }
+  .badge-live { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--green); background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); padding: 3px 10px; border-radius: 20px; }
+  .badge-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .header-date { font-size: 12px; color: var(--text3); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  /* ── Layout ── */
+  .main { max-width: 980px; margin: 0 auto; padding: 32px 24px; }
+
+  /* ── Hero ── */
+  .hero { margin-bottom: 28px; }
+  .hero-eyebrow { font-size: 11px; font-weight: 500; color: var(--gold-dim); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 8px; }
+  .hero-title { font-size: 26px; font-weight: 600; color: #e8ecf4; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .hero-sub { font-size: 14px; color: var(--text2); max-width: 560px; }
+
+  /* ── Metrics ── */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  .metric { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+  .metric-value { font-size: 24px; font-weight: 600; color: #e8ecf4; }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .green { color: var(--green) !important; } .red { color: var(--red) !important; } .gold { color: var(--gold) !important; }
+
+  /* ── Section ── */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .section-title { font-size: 12px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .09em; }
+  .refresh-btn { font-size: 12px; color: var(--text2); background: none; border: 1px solid var(--border2); border-radius: 6px; padding: 4px 12px; cursor: pointer; transition: all .15s; }
+  .refresh-btn:hover { background: var(--bg3); color: var(--text); }
+
+  /* ── Table ── */
+  .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 28px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; border-bottom: 1px solid var(--border); background: var(--bg); }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .ticker-name { font-weight: 600; font-size: 14px; color: #e8ecf4; }
+  .pill { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; letter-spacing: .04em; }
+  .pill-buy  { background: rgba(46,204,113,0.12); color: var(--green); border: 1px solid rgba(46,204,113,0.25); }
+  .pill-sell { background: rgba(231,76,60,0.12);  color: var(--red);   border: 1px solid rgba(231,76,60,0.25); }
+  .pill-hold { background: rgba(243,156,18,0.12); color: var(--orange);border: 1px solid rgba(243,156,18,0.25); }
+  .conf-wrap { display: flex; align-items: center; gap: 8px; }
+  .conf-bar  { width: 48px; height: 4px; background: var(--bg3); border-radius: 2px; }
+  .conf-fill { height: 4px; border-radius: 2px; background: var(--gold); }
+  .conf-text { font-size: 12px; color: var(--text2); }
+  .price-main { font-size: 13px; font-weight: 500; color: #e8ecf4; }
+  .price-delta { font-size: 11px; margin-top: 2px; }
+  .delta-up { color: var(--green); } .delta-dn { color: var(--red); } .delta-flat { color: var(--text3); }
+  .sl-val  { font-size: 12px; color: var(--red); }
+  .tp1-val { font-size: 12px; color: var(--green); }
+  .empty-row td { text-align: center; padding: 40px; color: var(--text3); font-size: 13px; }
+
+  /* ── Info buttons ── */
+  .info-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); background: none; border: 1px solid var(--border); border-radius: 5px; padding: 3px 8px; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .info-btn:hover { border-color: var(--gold-dim); color: var(--gold); background: rgba(245,197,24,0.06); }
+  .info-btn .dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .dot-gold { background: var(--gold); }
+  .dot-blue { background: var(--blue); }
+  .btn-group { display: flex; gap: 6px; }
+
+  /* ── Results ── */
+  .results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+  .result-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+  .result-card-title { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 14px; }
+  .result-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .result-row:last-child { border-bottom: none; }
+  .result-key { font-size: 12px; color: var(--text2); }
+  .result-val { font-size: 13px; font-weight: 500; color: #e8ecf4; }
+  .pending-msg { text-align: center; padding: 24px; color: var(--text3); font-size: 12px; border: 1px dashed var(--border2); border-radius: 8px; line-height: 1.8; }
+
+  /* ── Disclaimer ── */
+  .disclaimer { background: rgba(243,156,18,0.06); border: 1px solid rgba(243,156,18,0.15); border-radius: 8px; padding: 14px 18px; font-size: 12px; color: var(--text2); line-height: 1.7; }
+  .disclaimer strong { color: var(--orange); }
+
+  /* ── Footer ── */
+  .footer { border-top: 1px solid var(--border); padding: 20px 32px; text-align: center; font-size: 12px; color: var(--text3); margin-top: 40px; }
+
+  /* ══════════════════════════════════════════════════════
+     POPUP / MODAL
+  ══════════════════════════════════════════════════════ */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.72); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 14px; width: 100%; max-width: 560px;
+    max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    animation: slideUp .2s ease;
+  }
+  @keyframes slideUp { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+  .modal-header {
+    padding: 20px 22px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; position: sticky; top: 0; background: var(--bg2); z-index: 1;
+  }
+  .modal-ticker { font-size: 18px; font-weight: 700; color: #e8ecf4; }
+  .modal-subtitle { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .modal-close { background: none; border: none; color: var(--text3); font-size: 20px; cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1; flex-shrink: 0; }
+  .modal-close:hover { color: var(--text); background: var(--bg3); }
+  .modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* Modal sections */
+  .modal-section-title {
+    font-size: 10px; font-weight: 600; color: var(--text3);
+    text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .modal-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* Señal summary */
+  .signal-summary { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .signal-big { display: flex; flex-direction: column; align-items: center; background: var(--bg3); border-radius: 10px; padding: 12px 18px; min-width: 80px; }
+  .signal-big .pill { font-size: 13px; padding: 4px 14px; margin-bottom: 4px; }
+  .signal-big .conf-label { font-size: 11px; color: var(--text3); }
+  .signal-meta { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .signal-meta-item { background: var(--bg3); border-radius: 8px; padding: 8px 12px; }
+  .signal-meta-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+  .signal-meta-val { font-size: 13px; font-weight: 500; color: #e8ecf4; }
+
+  /* Niveles SL/TP */
+  .niveles-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .nivel-item { background: var(--bg3); border-radius: 8px; padding: 8px 10px; text-align: center; }
+  .nivel-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+  .nivel-val { font-size: 12px; font-weight: 500; }
+  .nivel-sl { color: var(--red); }
+  .nivel-tp { color: var(--green); }
+
+  /* Trazabilidad */
+  .factores { display: flex; flex-direction: column; gap: 6px; }
+  .factor-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--text); line-height: 1.5; }
+  .factor-icon { flex-shrink: 0; margin-top: 2px; font-size: 13px; }
+
+  /* Síntesis */
+  .sintesis-text { font-size: 13px; color: var(--text2); line-height: 1.75; }
+  .sintesis-text strong, .sintesis-text b { color: var(--text); font-weight: 500; }
+  .sintesis-text h1, .sintesis-text h2, .sintesis-text h3 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+
+  /* Forecast bands */
+  .forecast-horizons { display: flex; flex-direction: column; gap: 14px; }
+  .horizon-block { background: var(--bg3); border-radius: 10px; padding: 14px; }
+  .horizon-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+  .horizon-bands { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .band-item { text-align: center; }
+  .band-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+  .band-val { font-size: 14px; font-weight: 600; }
+  .band-p10 { color: var(--red); }
+  .band-p50 { color: var(--gold); }
+  .band-p90 { color: var(--green); }
+  .band-delta { font-size: 10px; margin-top: 2px; }
+
+  /* Loading spinner */
+  .modal-loading { display: flex; align-items: center; justify-content: center; padding: 40px; gap: 10px; color: var(--text3); font-size: 13px; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border2); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .header { padding: 12px 16px; }
+    .main { padding: 20px 16px; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .results-grid { grid-template-columns: 1fr; }
+    .hero-title { font-size: 20px; }
+    .niveles-grid { grid-template-columns: repeat(2, 1fr); }
+    .horizon-bands { grid-template-columns: repeat(3, 1fr); }
+    thead th:nth-child(6), tbody td:nth-child(6),
+    thead th:nth-child(7), tbody td:nth-child(7) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">Smart<span>Trade</span></div>
+  <div class="header-right">
+    <div class="badge-live">En vivo</div>
+    <div class="header-date" id="header-date">—</div>
+  </div>
+</header>
+
+<main class="main">
+  <div class="hero">
+    <div class="hero-eyebrow">Validación de mercado · Beta</div>
+    <div class="hero-title">Señales del modelo IA</div>
+    <div class="hero-sub">Análisis técnico + contexto macro para 7 activos. Actualización diaria a las 23:00 UTC. Haz clic en <strong style="color:var(--gold)">Ver señal</strong> o <strong style="color:var(--blue)">Ver forecast</strong> para ver el análisis completo de la IA.</div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Tickers activos</div><div class="metric-value gold" id="m-total">—</div><div class="metric-sub">universo fijo</div></div>
+    <div class="metric"><div class="metric-label">BUY hoy</div><div class="metric-value green" id="m-buy">—</div><div class="metric-sub">señales alcistas</div></div>
+    <div class="metric"><div class="metric-label">SELL hoy</div><div class="metric-value red" id="m-sell">—</div><div class="metric-sub">señales bajistas</div></div>
+    <div class="metric"><div class="metric-label">Win rate global</div><div class="metric-value" id="m-winrate">—</div><div class="metric-sub" id="m-winrate-sub">sin datos aún</div></div>
+  </div>
+
+  <div class="section-header">
+    <div class="section-title">Señales de hoy</div>
+    <button class="refresh-btn" onclick="loadAll()">↻ Actualizar</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Señal</th>
+          <th>Confianza</th>
+          <th>Precio entrada</th>
+          <th>Forecast 7D p50</th>
+          <th>Stop Loss</th>
+          <th>Análisis IA</th>
+        </tr>
+      </thead>
+      <tbody id="signals-body">
+        <tr class="empty-row"><td colspan="7">Cargando señales...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-header"><div class="section-title">Resultados históricos</div></div>
+  <div id="results-section"></div>
+
+  <div class="disclaimer">
+    <strong>Aviso importante:</strong> SmartTrade es una herramienta de análisis con IA. <strong>No constituye consejo de inversión.</strong> No es un broker registrado. Las señales son sugerencias del modelo basadas en análisis técnico y datos históricos. Resultados pasados no garantizan resultados futuros. Toda decisión de inversión es de exclusiva responsabilidad del usuario.
+  </div>
+</main>
+
+<footer class="footer">SmartTrade · Beta privada · Solo para validación de mercado</footer>
+
+<!-- ══════════════════ MODAL ══════════════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOnOverlay(event)">
+  <div class="modal" id="modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-ticker" id="modal-ticker">—</div>
+        <div class="modal-subtitle" id="modal-subtitle">—</div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <div class="modal-loading"><div class="spinner"></div> Cargando análisis...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://smarttrade-backend-production-b8e7.up.railway.app';
+let _signalsCache = {};   // ticker → signal data
+let _forecastCache = {};  // ticker → forecast data
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmt(n, dec) {
+  if (n == null || isNaN(n)) return '—';
+  return Number(n).toLocaleString('en-US', { minimumFractionDigits: dec??2, maximumFractionDigits: dec??2 });
+}
+function fmtPct(n) {
+  if (n == null) return '—';
+  return (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+}
+function pillHtml(s) {
+  const c = s==='BUY'?'pill-buy':s==='SELL'?'pill-sell':'pill-hold';
+  return `<span class="pill ${c}">${s}</span>`;
+}
+function deltaClass(a, b) {
+  if (!b) return 'delta-flat';
+  const d = (b-a)/a*100;
+  return d>0.3?'delta-up':d<-0.3?'delta-dn':'delta-flat';
+}
+function deltaArrow(a, b) {
+  if (!b) return '';
+  const d = (b-a)/a*100;
+  return d>0.3?'↑':d<-0.3?'↓':'→';
+}
+function parseMd(text) {
+  if (!text) return '';
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/## (.+)/g, '<h2>$1</h2>')
+    .replace(/# (.+)/g,  '<h1>$1</h1>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── Load signals ──────────────────────────────────────────────────────────────
+async function loadSignals() {
+  try {
+    const res = await fetch(`${API}/v1/papertrading/señales?limit=50`);
+    const data = await res.json();
+    const all = data.señales || [];
+    const latestDate = all[0]?.job_date;
+    const today = all.filter(s => s.job_date === latestDate);
+
+    today.forEach(s => { _signalsCache[s.ticker] = s; });
+
+    document.getElementById('m-total').textContent = today.length;
+    document.getElementById('m-buy').textContent   = today.filter(s=>s.señal==='BUY').length;
+    document.getElementById('m-sell').textContent  = today.filter(s=>s.señal==='SELL').length;
+    document.getElementById('header-date').textContent = latestDate ? 'Actualizado ' + latestDate : '';
+
+    if (!today.length) {
+      document.getElementById('signals-body').innerHTML = '<tr class="empty-row"><td colspan="7">Sin señales hoy. El job corre a las 23:00 UTC.</td></tr>';
+      return;
+    }
+
+    document.getElementById('signals-body').innerHTML = today.map(s => {
+      const fc7  = s.forecast_7d_p50;
+      const dcls = deltaClass(s.precio_entrada, fc7);
+      const darr = deltaArrow(s.precio_entrada, fc7);
+      const d7   = fc7 ? ((fc7-s.precio_entrada)/s.precio_entrada*100) : null;
+      const cw   = Math.round(Math.max(0, Math.min(100, (s.confianza-50)/45*100)));
+      return `<tr>
+        <td><span class="ticker-name">${s.ticker}</span></td>
+        <td>${pillHtml(s.señal)}</td>
+        <td><div class="conf-wrap"><div class="conf-bar"><div class="conf-fill" style="width:${cw}%"></div></div><span class="conf-text">${s.confianza}%</span></div></td>
+        <td><span class="price-main">$${fmt(s.precio_entrada)}</span></td>
+        <td>
+          <span class="price-main ${dcls}">$${fmt(fc7)} ${darr}</span>
+          ${d7!=null?`<div class="price-delta ${dcls}">${fmtPct(d7)}</div>`:''}
+        </td>
+        <td><span class="sl-val">$${fmt(s.sl)}</span></td>
+        <td>
+          <div class="btn-group">
+            <button class="info-btn" onclick="openSignalModal('${s.ticker}')"><span class="dot dot-gold"></span>Ver señal</button>
+            <button class="info-btn" onclick="openForecastModal('${s.ticker}')"><span class="dot dot-blue"></span>Forecast</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('signals-body').innerHTML = `<tr class="empty-row"><td colspan="7">Error: ${e.message}</td></tr>`;
+  }
+}
+
+// ── Load results ──────────────────────────────────────────────────────────────
+async function loadResults() {
+  const container = document.getElementById('results-section');
+  try {
+    const res = await fetch(`${API}/v1/papertrading/resultados`);
+    const data = await res.json();
+    const g = data.global;
+
+    if (!g || g.total_evaluaciones === 0) {
+      container.innerHTML = `<div class="pending-msg">Los primeros resultados estarán disponibles en <strong>24 horas</strong>.<br>El modelo registra win rate, retorno y accuracy del forecast a <strong>1D · 3D · 7D</strong> automáticamente.</div>`;
+      return;
+    }
+
+    const wr = g.win_rate_pct;
+    document.getElementById('m-winrate').textContent = wr!=null ? wr.toFixed(1)+'%' : '—';
+    document.getElementById('m-winrate').className = 'metric-value '+(wr>=50?'green':'red');
+    document.getElementById('m-winrate-sub').textContent = g.total_evaluaciones+' evaluaciones';
+
+    const porH = data.por_horizonte || {};
+    const cardsHtml = ['1D','3D','7D'].map(h => {
+      const m = porH[h];
+      if (!m) return `<div class="result-card"><div class="result-card-title">Horizonte ${h}</div><div style="color:var(--text3);font-size:12px">Sin evaluaciones</div></div>`;
+      return `<div class="result-card">
+        <div class="result-card-title">Horizonte ${h} · ${m.total_evaluaciones} eval.</div>
+        <div class="result-row"><span class="result-key">Win rate</span><span class="result-val ${m.win_rate_pct>=50?'green':'red'}">${fmt(m.win_rate_pct,1)}%</span></div>
+        <div class="result-row"><span class="result-key">Retorno promedio</span><span class="result-val ${m.retorno_promedio_pct>=0?'green':'red'}">${fmtPct(m.retorno_promedio_pct)}</span></div>
+        <div class="result-row"><span class="result-key">Forecast accuracy</span><span class="result-val gold">${m.forecast_accuracy_pct!=null?fmt(m.forecast_accuracy_pct,1)+'%':'—'}</span></div>
+        <div class="result-row"><span class="result-key">SL tocado</span><span class="result-val">${fmt(m.sl_tocado_rate_pct,1)}%</span></div>
+      </div>`;
+    }).join('');
+
+    const porT = data.por_ticker||{};
+    const tickerRows = Object.entries(porT).sort((a,b)=>a[0].localeCompare(b[0])).map(([t,m])=>`<tr>
+      <td><span class="ticker-name">${t}</span></td>
+      <td class="result-val ${m.win_rate_pct>=50?'green':'red'}">${fmt(m.win_rate_pct,1)}%</td>
+      <td class="result-val ${m.retorno_promedio_pct>=0?'green':'red'}">${fmtPct(m.retorno_promedio_pct)}</td>
+      <td class="result-val gold">${m.forecast_accuracy_pct!=null?fmt(m.forecast_accuracy_pct,1)+'%':'—'}</td>
+      <td style="color:var(--text2);font-size:12px">${m.total_evaluaciones}</td>
+    </tr>`).join('');
+
+    container.innerHTML = `
+      <div class="results-grid">${cardsHtml}</div>
+      <div class="table-wrap" style="margin-bottom:28px">
+        <table><thead><tr><th>Ticker</th><th>Win rate</th><th>Retorno prom.</th><th>Forecast acc.</th><th>Evaluaciones</th></tr></thead>
+        <tbody>${tickerRows}</tbody></table>
+      </div>`;
+  } catch(e) {
+    container.innerHTML = `<div class="pending-msg">Error al cargar resultados: ${e.message}</div>`;
+  }
+}
+
+// ── Modal: señal ──────────────────────────────────────────────────────────────
+async function openSignalModal(ticker) {
+  openModal(ticker, 'Señal del modelo · Análisis completo');
+  setModalLoading();
+
+  let signal;
+  try {
+    const res = await fetch(`${API}/v1/signal/${ticker}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    signal = await res.json();
+  } catch(e) {
+    // Fallback con datos del paper trading cache
+    const paper = _signalsCache[ticker];
+    if (paper) {
+      signal = {
+        ticker:        paper.ticker,
+        señal:         paper.señal,
+        confianza:     paper.confianza,
+        precio_actual: paper.precio_entrada,
+        niveles:       { sl: paper.sl, tp1: paper.tp1, tp2: paper.tp2, tp3: paper.tp3 },
+        trazabilidad:  {},
+        sintesis:      paper.sintesis,
+      };
+    } else {
+      setModalError(e.message); return;
+    }
+  }
+
+  const traz = signal.trazabilidad || {};
+  const niv  = signal.niveles || {};
+
+  const factoresPos = (traz.factores_positivos||[]).map(f =>
+    `<div class="factor-item"><span class="factor-icon">✅</span>${f}</div>`).join('');
+  const factoresNeg = (traz.factores_negativos||[]).map(f =>
+    `<div class="factor-item"><span class="factor-icon">⚠️</span>${f}</div>`).join('');
+  const alertas = (traz.alertas||[]).map(f =>
+    `<div class="factor-item"><span class="factor-icon">🚨</span>${f}</div>`).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <!-- Resumen señal -->
+    <div>
+      <div class="modal-section-title">Señal</div>
+      <div class="signal-summary">
+        <div class="signal-big">
+          ${pillHtml(signal.señal||signal.signal||'—')}
+          <span class="conf-label">${signal.confianza}% confianza</span>
+        </div>
+        <div class="signal-meta">
+          <div class="signal-meta-item"><div class="signal-meta-label">Precio entrada</div><div class="signal-meta-val">$${fmt(signal.precio_actual)}</div></div>
+          <div class="signal-meta-item"><div class="signal-meta-label">Score final</div><div class="signal-meta-val ${(traz.score_final||0)>=0?'green':'red'}">${(traz.score_final||0)>0?'+':''}${traz.score_final??'—'}</div></div>
+          <div class="signal-meta-item"><div class="signal-meta-label">Score técnico</div><div class="signal-meta-val">${traz.score_tecnico??'—'}</div></div>
+          <div class="signal-meta-item"><div class="signal-meta-label">Score contexto</div><div class="signal-meta-val">${traz.score_contexto??'—'}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Niveles SL/TP -->
+    <div>
+      <div class="modal-section-title">Niveles de riesgo</div>
+      <div class="niveles-grid">
+        <div class="nivel-item"><div class="nivel-label">Stop Loss</div><div class="nivel-val nivel-sl">$${fmt(niv.sl)}</div></div>
+        <div class="nivel-item"><div class="nivel-label">TP1</div><div class="nivel-val nivel-tp">$${fmt(niv.tp1)}</div></div>
+        <div class="nivel-item"><div class="nivel-label">TP2</div><div class="nivel-val nivel-tp">$${fmt(niv.tp2)}</div></div>
+        <div class="nivel-item"><div class="nivel-label">TP3</div><div class="nivel-val nivel-tp">$${fmt(niv.tp3)}</div></div>
+      </div>
+    </div>
+
+    <!-- Trazabilidad -->
+    ${factoresPos || factoresNeg || alertas ? `
+    <div>
+      <div class="modal-section-title">Factores del modelo</div>
+      <div class="factores">
+        ${factoresPos}
+        ${factoresNeg}
+        ${alertas}
+      </div>
+    </div>` : ''}
+
+    <!-- Síntesis IA -->
+    ${signal.sintesis ? `
+    <div>
+      <div class="modal-section-title">Síntesis de la IA</div>
+      <div class="sintesis-text"><p>${parseMd(signal.sintesis)}</p></div>
+    </div>` : ''}
+  `;
+}
+
+// ── Modal: forecast ───────────────────────────────────────────────────────────
+async function openForecastModal(ticker) {
+  openModal(ticker, 'Forecast probabilístico · p10 / p50 / p90');
+  setModalLoading();
+
+  let forecast = _forecastCache[ticker];
+  if (!forecast) {
+    try {
+      const res = await fetch(`${API}/v1/forecast/${ticker}`);
+      forecast = await res.json();
+      _forecastCache[ticker] = forecast;
+    } catch(e) {
+      setModalError(e.message); return;
+    }
+  }
+
+  const signal = _signalsCache[ticker];
+  const entrada = signal?.precio_entrada || signal?.precio_actual;
+  const horizontes = forecast.horizontes || {};
+
+  const horizBlocks = ['1D','3D','7D'].map(h => {
+    const hd = horizontes[h];
+    if (!hd) return '';
+    const d50 = entrada ? ((hd.p50-entrada)/entrada*100) : null;
+    const d10 = entrada ? ((hd.p10-entrada)/entrada*100) : null;
+    const d90 = entrada ? ((hd.p90-entrada)/entrada*100) : null;
+    return `<div class="horizon-block">
+      <div class="horizon-label">Horizonte ${h}</div>
+      <div class="horizon-bands">
+        <div class="band-item">
+          <div class="band-label">Pesimista (p10)</div>
+          <div class="band-val band-p10">$${fmt(hd.p10)}</div>
+          ${d10!=null?`<div class="band-delta delta-dn">${fmtPct(d10)}</div>`:''}
+        </div>
+        <div class="band-item">
+          <div class="band-label">Base (p50)</div>
+          <div class="band-val band-p50">$${fmt(hd.p50)}</div>
+          ${d50!=null?`<div class="band-delta ${d50>=0?'delta-up':'delta-dn'}">${fmtPct(d50)}</div>`:''}
+        </div>
+        <div class="band-item">
+          <div class="band-label">Optimista (p90)</div>
+          <div class="band-val band-p90">$${fmt(hd.p90)}</div>
+          ${d90!=null?`<div class="band-delta delta-up">${fmtPct(d90)}</div>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <!-- Explicación del modelo -->
+    <div>
+      <div class="modal-section-title">Cómo se calcula el forecast</div>
+      <div class="sintesis-text">
+        <p>El modelo genera tres escenarios de precio usando la <strong>volatilidad histórica (ATR)</strong> escalada por la raíz del tiempo, con un sesgo direccional determinado por <strong>Ichimoku</strong> y el score de confianza de la señal M3. El escenario base (p50) refleja la trayectoria más probable; p10 y p90 son los límites pesimista y optimista respectivamente.</p>
+      </div>
+    </div>
+
+    <!-- Bandas por horizonte -->
+    <div>
+      <div class="modal-section-title">Bandas de precio proyectadas</div>
+      <div class="forecast-horizons">${horizBlocks}</div>
+    </div>
+
+    ${entrada ? `
+    <div>
+      <div class="modal-section-title">Referencia</div>
+      <div class="signal-meta" style="grid-template-columns:1fr">
+        <div class="signal-meta-item"><div class="signal-meta-label">Precio de entrada capturado</div><div class="signal-meta-val">$${fmt(entrada)}</div></div>
+      </div>
+    </div>` : ''}
+  `;
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function openModal(ticker, subtitle) {
+  document.getElementById('modal-ticker').textContent = ticker;
+  document.getElementById('modal-subtitle').textContent = subtitle;
+  document.getElementById('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeModalOnOverlay(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+function setModalLoading() {
+  document.getElementById('modal-body').innerHTML = '<div class="modal-loading"><div class="spinner"></div> Cargando análisis...</div>';
+}
+function setModalError(msg) {
+  document.getElementById('modal-body').innerHTML = `<div class="modal-loading" style="color:var(--red)">Error: ${msg}</div>`;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function loadAll() {
+  await Promise.all([loadSignals(), loadResults()]);
+}
+loadAll();
+</script>
+</body>
+</html>
